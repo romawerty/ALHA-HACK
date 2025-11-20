@@ -1,0 +1,104 @@
+services:
+  # API Gateway
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - CALENDAR_SERVICE_URL=http://calendar-service:8002
+      - EMAIL_SERVICE_URL=http://email-service:8003
+      - NEWS_SERVICE_URL=http://news-service:8004
+      - LLM_AGENT_SERVICE_URL=http://llm-agent-service:8005
+    depends_on:
+      - auth-service
+      - calendar-service
+      - email-service
+      - news-service
+      - llm-agent-service
+    networks:
+      - app-network
+
+  # Auth Service
+  auth-service:
+    build: ./services/auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION_HOURS=24
+    volumes:
+      - auth-data:/app/data
+    networks:
+      - app-network
+
+  # Calendar Service
+  calendar-service:
+    build: ./services/calendar-service
+    ports:
+      - "8002:8002"
+    environment:
+      - YANDEX_CALENDAR_CLIENT_ID=${YANDEX_CALENDAR_CLIENT_ID}
+      - YANDEX_CALENDAR_CLIENT_SECRET=${YANDEX_CALENDAR_CLIENT_SECRET}
+      - YANDEX_CALENDAR_REDIRECT_URI=${YANDEX_CALENDAR_REDIRECT_URI:-http://localhost:8000/auth/yandex/callback}
+    networks:
+      - app-network
+
+  # Email Service
+  email-service:
+    build: ./services/email-service
+    ports:
+      - "8003:8003"
+    environment:
+      - YANDEX_EMAIL_CLIENT_ID=${YANDEX_EMAIL_CLIENT_ID}
+      - YANDEX_EMAIL_CLIENT_SECRET=${YANDEX_EMAIL_CLIENT_SECRET}
+      - YANDEX_EMAIL_REDIRECT_URI=${YANDEX_EMAIL_REDIRECT_URI:-http://localhost:8000/auth/yandex/callback}
+    networks:
+      - app-network
+
+  # News Service
+  news-service:
+    build: ./services/news-service
+    ports:
+      - "8004:8004"
+    environment:
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+    networks:
+      - app-network
+
+  # LLM Agent Service
+  llm-agent-service:
+    build: ./services/llm-agent-service
+    ports:
+      - "8005:8005"
+    environment:
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - CALENDAR_SERVICE_URL=http://calendar-service:8002
+      - EMAIL_SERVICE_URL=http://email-service:8003
+    depends_on:
+      - calendar-service
+      - email-service
+    networks:
+      - app-network
+
+  # Frontend (Streamlit)
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - DOCKER_ENV=true
+      - API_GATEWAY_URL=http://api-gateway:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - app-network
+
+volumes:
+  auth-data:
+
+networks:
+  app-network:
+    driver: bridge
+
